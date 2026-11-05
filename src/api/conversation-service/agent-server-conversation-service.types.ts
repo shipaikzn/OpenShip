@@ -242,6 +242,7 @@ export interface AppConversation {
    */
   active_profile?: string | null;
   public?: boolean;
+  parent_conversation_id?: string | null;
   sub_conversation_ids: string[];
 }
 

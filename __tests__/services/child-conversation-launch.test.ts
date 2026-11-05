@@ -15,6 +15,7 @@ import type { LaunchChildConversationAction } from "#/types/agent-server/core";
 import { isLaunchChildConversationActionEvent } from "#/types/agent-server/type-guards";
 import {
   handleLaunchChildConversationAction,
+  resolveChildConversationTitle,
   type LaunchChildConversationResult,
 } from "#/services/child-conversation-launch";
 
@@ -376,6 +377,93 @@ describe("handleLaunchChildConversationAction", () => {
       );
 
       expect(mockUpdateTitle).toHaveBeenCalledWith("child-id", "Parser tests");
+    });
+
+    it("names the child conversation after the role when role is given", async () => {
+      await handleLaunchChildConversationAction(
+        action({ role: "Backend Developer" }),
+        PARENT_ID,
+        nextToolCallId(),
+      );
+
+      expect(mockUpdateTitle).toHaveBeenCalledWith(
+        "child-id",
+        "Backend Developer",
+      );
+    });
+
+    it("combines role and title when both are given", async () => {
+      await handleLaunchChildConversationAction(
+        action({
+          role: "Frontend Developer",
+          title: "Implement Settings view",
+        }),
+        PARENT_ID,
+        nextToolCallId(),
+      );
+
+      expect(mockUpdateTitle).toHaveBeenCalledWith(
+        "child-id",
+        "Frontend Developer: Implement Settings view",
+      );
+    });
+
+    it("selects the matching agent profile when role is specified", async () => {
+      mockListAgentProfiles.mockResolvedValue({
+        profiles: [
+          {
+            id: "profile-default",
+            name: "default",
+            agent_kind: "openhands",
+            revision: 1,
+            llm_profile_ref: "default",
+            mcp_server_refs: null,
+          },
+          {
+            id: "profile-frontend",
+            name: "FrontendDeveloper",
+            agent_kind: "openhands",
+            revision: 1,
+            llm_profile_ref: "default",
+            mcp_server_refs: null,
+          },
+        ],
+        active_agent_profile_id: "profile-default",
+      });
+
+      await handleLaunchChildConversationAction(
+        action({ role: "Frontend Developer" }),
+        PARENT_ID,
+        nextToolCallId(),
+      );
+
+      expect(mockCreateConversation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agentProfileId: "profile-frontend",
+        }),
+      );
+    });
+
+    it("prevents child conversations from creating additional sub-conversations", async () => {
+      mockBatchGetAppConversations.mockResolvedValue([
+        {
+          id: PARENT_ID,
+          parent_conversation_id: "root-product-owner-id",
+        },
+      ]);
+
+      await handleLaunchChildConversationAction(
+        action({ task: "Write tests" }),
+        PARENT_ID,
+        nextToolCallId(),
+      );
+
+      const result = reportedResult();
+      expect(result.status).toBe("error");
+      expect(result.status === "error" && result.error).toContain(
+        "Child conversations cannot create additional sub-conversations",
+      );
+      expect(mockCreateConversation).not.toHaveBeenCalled();
     });
 
     it("runs a shared-isolation child in the parent's directory itself", async () => {
@@ -781,5 +869,55 @@ describe("isLaunchChildConversationActionEvent", () => {
         makeActionEvent("canvas_ui_control"),
       ),
     ).toBe(false);
+  });
+});
+
+describe("resolveChildConversationTitle", () => {
+  it("returns explicit title when no role is specified", () => {
+    expect(
+      resolveChildConversationTitle("Custom Title", null, "some task"),
+    ).toBe("Custom Title");
+  });
+
+  it("returns role when role is specified", () => {
+    expect(
+      resolveChildConversationTitle(null, "Frontend Developer", "some task"),
+    ).toBe("Frontend Developer");
+  });
+
+  it("combines role and title when both are given", () => {
+    expect(
+      resolveChildConversationTitle(
+        "Build Navigation",
+        "Frontend Developer",
+        "some task",
+      ),
+    ).toBe("Frontend Developer: Build Navigation");
+  });
+
+  it("infers role from task when neither title nor role is given", () => {
+    expect(
+      resolveChildConversationTitle(null, null, "Implement react UI component"),
+    ).toBe("Frontend Developer");
+    expect(
+      resolveChildConversationTitle(null, null, "Create backend API endpoint"),
+    ).toBe("Backend Developer");
+    expect(
+      resolveChildConversationTitle(null, null, "Add vitest test coverage"),
+    ).toBe("QA Engineer");
+    expect(
+      resolveChildConversationTitle(
+        null,
+        null,
+        "Update documentation in readme",
+      ),
+    ).toBe("Technical Writer");
+    expect(
+      resolveChildConversationTitle(
+        null,
+        null,
+        "Configure docker CI/CD pipeline",
+      ),
+    ).toBe("DevOps Engineer");
   });
 });

@@ -1202,7 +1202,9 @@ export function buildStartConversationRequest(
       options.agentProfileKind === "openhands"
         ? [
             CANVAS_UI_CLIENT_TOOL,
-            LAUNCH_CHILD_CONVERSATION_CLIENT_TOOL,
+            ...(options.parentConversationId
+              ? []
+              : [LAUNCH_CHILD_CONVERSATION_CLIENT_TOOL]),
             REQUEST_SECRET_CLIENT_TOOL,
             ...(options.automationSetup
               ? [

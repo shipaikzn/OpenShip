@@ -22,6 +22,11 @@ import { launchConversation } from "#/hooks/mutation/resolve-conversation-launch
 import { getQueryClient } from "#/query-client-config";
 import SettingsService from "#/api/settings-service/settings-service.api";
 import MetaProfilesService from "#/api/meta-profiles-service/meta-profiles-service.api";
+import AgentProfilesService from "#/api/agent-profiles-service/agent-profiles-service.api";
+import {
+  AGENT_PROFILES_QUERY_KEYS,
+  AGENT_PROFILES_RETRY_OPTIONS,
+} from "#/hooks/query/query-keys";
 import {
   CHILD_CONVERSATION_ISOLATIONS,
   CHILD_CONVERSATION_RESULT_PREFIX,
@@ -87,6 +92,7 @@ interface ValidatedParams {
   target: ChildConversationTarget;
   task: string;
   title: string | null;
+  role: string | null;
   repository: string | null;
   branch: string | null;
   isolation: ChildConversationIsolation;
@@ -196,6 +202,7 @@ function validateLaunchParams(
       target,
       task,
       title: blankToNull(action.title),
+      role: blankToNull(action.role),
       repository,
       branch,
       isolation: isolation ?? "worktree",
@@ -244,19 +251,104 @@ const parentSupportsWorktree = (
 const SHARED_FALLBACK_CONSEQUENCE =
   "The child was launched in this conversation's directory instead, so it can see work in progress here and the two agents may conflict over the same files.";
 
+/**
+ * Resolve the conversation title, ensuring child conversation titles are named
+ * after the agent's role.
+ */
+export function resolveChildConversationTitle(
+  explicitTitle: string | null | undefined,
+  explicitRole: string | null | undefined,
+  task: string,
+): string | null {
+  const trimmedRole = explicitRole?.trim();
+  const trimmedTitle = explicitTitle?.trim();
+
+  if (trimmedRole) {
+    if (
+      trimmedTitle &&
+      !trimmedTitle.toLowerCase().includes(trimmedRole.toLowerCase())
+    ) {
+      return `${trimmedRole}: ${trimmedTitle}`;
+    }
+    return trimmedTitle || trimmedRole;
+  }
+
+  if (trimmedTitle) {
+    return trimmedTitle;
+  }
+
+  // Infer role from task description if available
+  const taskLower = task.toLowerCase();
+  if (/\b(?:frontend|ui|react|css|tailwind|component)\b/i.test(taskLower)) {
+    return "Frontend Developer";
+  }
+  if (
+    /\b(?:backend|api|endpoint|database|schema|pydantic|server)\b/i.test(
+      taskLower,
+    )
+  ) {
+    return "Backend Developer";
+  }
+  if (/\b(?:qa|test|tester|vitest|jest|pytest|testing)\b/i.test(taskLower)) {
+    return "QA Engineer";
+  }
+  if (
+    /\b(?:doc|docs|documentation|writer|writing|readme|changelog)\b/i.test(
+      taskLower,
+    )
+  ) {
+    return "Technical Writer";
+  }
+  if (
+    /\b(?:devops|ci\/cd|pipeline|docker|kubernetes|deploy)\b/i.test(taskLower)
+  ) {
+    return "DevOps Engineer";
+  }
+
+  return null;
+}
+
 /** The parent's Agent Profile and current LLM, so the child stays in its scope. */
-async function parentProfileLaunch(parentConversationId: string) {
+async function parentProfileLaunch(
+  parentConversationId: string,
+  targetRole?: string | null,
+) {
   const [parent] =
     await AgentServerConversationService.batchGetAppConversations([
       parentConversationId,
-    ]);
+    ]).catch(() => []);
   const { backend, orgId } = getActiveBackend();
+
+  let targetProfileId = parent?.launched_agent_profile?.agent_profile_id;
+  if (targetRole) {
+    try {
+      const agentProfiles = await getQueryClient().ensureQueryData({
+        queryKey: [...AGENT_PROFILES_QUERY_KEYS.all, backend.id, orgId],
+        queryFn: AgentProfilesService.listProfiles,
+        ...AGENT_PROFILES_RETRY_OPTIONS,
+        meta: { disableToast: true },
+      });
+      if (agentProfiles?.profiles) {
+        const normalized = targetRole.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const matched = agentProfiles.profiles.find((p) => {
+          const pName = p.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+          return pName.includes(normalized) || normalized.includes(pName);
+        });
+        if (matched?.id) {
+          targetProfileId = matched.id;
+        }
+      }
+    } catch {
+      // Fall back to parent's profile
+    }
+  }
+
   return {
     queryClient: getQueryClient(),
     backendId: backend.id,
     orgId,
     isCloud: false,
-    agentProfileId: parent?.launched_agent_profile?.agent_profile_id,
+    agentProfileId: targetProfileId,
     llmProfile:
       parent?.agent_kind === "openhands" ? parent.active_profile : null,
   };
@@ -274,7 +366,15 @@ async function launchLocalChild(
       parentConversationId,
     );
   const parentMetadata = getStoredConversationMetadata(parentConversationId);
-  const profileLaunch = await parentProfileLaunch(parentConversationId);
+  const resolvedTitle = resolveChildConversationTitle(
+    params.title,
+    params.role,
+    params.task,
+  );
+  const profileLaunch = await parentProfileLaunch(
+    parentConversationId,
+    params.role || resolvedTitle,
+  );
 
   const createChild = (isolation: ChildConversationIsolation) =>
     launchConversation(profileLaunch, {
@@ -318,12 +418,12 @@ async function launchLocalChild(
 
   const conversationId = startTask.app_conversation_id ?? startTask.id;
 
-  if (params.title) {
+  if (resolvedTitle) {
     // Local start requests carry no title — only `autotitle`. Best effort: a
     // failed rename must not fail the launch.
     await AgentServerConversationService.updateConversationTitle(
       conversationId,
-      params.title,
+      resolvedTitle,
     ).catch(() => undefined);
   }
 
@@ -334,7 +434,7 @@ async function launchLocalChild(
     conversation_id: conversationId,
     url: absoluteCanvasUrl(`/conversations/${conversationId}`),
     initial_status: startTask.status,
-    title: params.title,
+    title: resolvedTitle,
     workspace,
     isolation,
     ...(isolationNote ? { isolation_note: isolationNote } : {}),
@@ -405,13 +505,18 @@ async function launchCloudChild(
     cloudSettings.run_router_at_conversation_start,
     !!cloudMetaProfiles?.active_meta_profile,
   );
+  const resolvedTitle = resolveChildConversationTitle(
+    params.title,
+    params.role,
+    params.task,
+  );
   const startTask = await createCloudAppConversation(
     {
       initial_message: {
         role: "user",
         content: [{ type: "text", text: params.task }],
       },
-      title: params.title,
+      title: resolvedTitle,
       // Fall back to this conversation's repository so a bare `target: "cloud"`
       // call still lands the child on the code the user is working on. The
       // provider only travels with the inherited repository — it may not apply
@@ -454,7 +559,7 @@ async function launchCloudChild(
       ? `${backend.host.replace(/\/$/, "")}${CLOUD_AGENT_CANVAS_BASE_PATH}/conversations/${conversationId}`
       : null,
     initial_status: settled.status,
-    title: params.title,
+    title: resolvedTitle,
     start_task_id: settled.id,
     backend: backend.name,
     // Cloud children of a local parent carry no server-side link; see above.
@@ -521,6 +626,21 @@ export async function handleLaunchChildConversationAction(
       toolCallId,
     )
   ) {
+    return;
+  }
+
+  // Prevent nested child conversations: only top-level conversations can launch sub-conversations
+  const [parent] =
+    await AgentServerConversationService.batchGetAppConversations([
+      parentConversationId,
+    ]).catch(() => []);
+
+  if (parent?.parent_conversation_id) {
+    const errorResult = failure(
+      "Child conversations cannot create additional sub-conversations.",
+      "Delegation is limited to one level: only the root Product Owner conversation can launch child conversations. Do not create additional child conversations under this conversation.",
+    );
+    await reportLaunchResult(parentConversationId, errorResult).catch(() => {});
     return;
   }
 
