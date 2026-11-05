@@ -11,8 +11,8 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string>) => {
       const translations: Record<string, string> = {
-        SETTINGS$AVAILABLE_PROFILES: "Available Profiles",
-        SETTINGS$ADD_AGENT_PROFILE: "Add agent profile",
+        SETTINGS$AVAILABLE_AGENTS: "Available agents",
+        SETTINGS$ADD_AGENT_PROFILE: "Add agent",
         SETTINGS$PROFILES_LOAD_ERROR: "Failed to load profiles",
         SETTINGS$PROFILES_EMPTY: "No profiles saved yet",
         SETTINGS$PROFILE_ACTIVE: "Active",
@@ -110,7 +110,7 @@ describe("AgentProfilesManager", () => {
 
     renderManager();
 
-    expect(screen.getByText("Available Profiles")).toBeInTheDocument();
+    expect(screen.getByText("Available agents")).toBeInTheDocument();
     await screen.findByText("my-openhands");
     expect(screen.getByText("my-claude")).toBeInTheDocument();
     // OpenHands profiles show their referenced LLM profile; ACP shows the kind.
@@ -259,5 +259,27 @@ describe("AgentProfilesManager", () => {
     expect(
       screen.getByText('Are you sure you want to delete "my-claude"?'),
     ).toBeInTheDocument();
+  });
+
+  it("renders the project badge when an agent has an assigned project", async () => {
+    vi.mocked(AgentProfilesService.listProfiles).mockResolvedValue({
+      profiles: [
+        {
+          id: "id-project",
+          name: "agent-with-project",
+          agent_kind: "openhands",
+          revision: 0,
+          llm_profile_ref: "default",
+          mcp_server_refs: null,
+          project: "OpenShip",
+        },
+      ],
+      active_agent_profile_id: null,
+    });
+
+    renderManager();
+
+    expect(await screen.findByText("agent-with-project")).toBeInTheDocument();
+    expect(screen.getByTestId("agent-profile-project-badge")).toHaveTextContent("OpenShip");
   });
 });

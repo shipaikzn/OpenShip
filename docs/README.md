@@ -3,6 +3,7 @@
 This directory contains the project documentation.
 
 - [Architecture](./architecture.md): system boundaries, runtime modes, and quality gates.
+- [Agents Settings Guide](./AGENTS_SETTINGS.md): manage autonomous team agents, Location, and Project settings.
 - [Using ACP agents](./ACP_AGENTS.md): onboard and configure external agents (Claude Code, Codex, Gemini CLI, Pi, OpenCode).
 - [Development guide](./DEVELOPMENT.md)
 - [Canvas Extensions manual testing](./CANVAS_EXTENSIONS_TESTING.md)

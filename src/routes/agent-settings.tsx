@@ -1107,7 +1107,7 @@ export function AgentSettingsScreen({
       <SettingsDropdownInput
         testId="agent-type-selector"
         name="agent-type"
-        label={t(I18nKey.SETTINGS$NAV_AGENT)}
+        label={t(I18nKey.SETTINGS$AGENT_LOCATION)}
         items={[
           {
             key: "openhands",

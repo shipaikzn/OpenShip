@@ -394,6 +394,37 @@ describe("AgentProfilesLocalView save mapping", () => {
     });
   });
 
+  it("captures and persists the Project field on form submission", async () => {
+    emitControl = {
+      agentType: "openhands",
+      isValid: true,
+      isDirty: true,
+      buildAgentProfileFields: () => ({
+        agent_kind: "openhands",
+        mcp_server_refs: null,
+      }),
+      credentials: { isDirty: false, save: vi.fn(), reset: vi.fn() },
+    };
+
+    renderView();
+    const user = await openCreateAndName("agent-with-project");
+    const projectInput = screen.getByTestId("agent-profile-project-input");
+    await user.type(projectInput, "OpenShip");
+    await user.click(screen.getByTestId("save-agent-profile-btn"));
+
+    await waitFor(() => expect(saveMutate).toHaveBeenCalledTimes(1));
+    expect(saveMutate).toHaveBeenCalledWith({
+      name: "agent-with-project",
+      profile: {
+        agent_kind: "openhands",
+        mcp_server_refs: null,
+        llm_profile_ref: "default",
+        project: "OpenShip",
+        public_skills: [...DEFAULT_ENABLED_SKILL_NAMES],
+      },
+    });
+  });
+
   it("saves an ACP profile without an llm_profile_ref", async () => {
     emitControl = {
       agentType: "acp",

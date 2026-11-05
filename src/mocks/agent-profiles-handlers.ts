@@ -120,6 +120,7 @@ function toSummary(name: string, profile: AgentProfile): AgentProfileSummary {
     llm_profile_ref:
       profile.agent_kind === "openhands" ? profile.llm_profile_ref : null,
     mcp_server_refs: profile.mcp_server_refs,
+    project: profile.project ?? null,
   };
 }
 
