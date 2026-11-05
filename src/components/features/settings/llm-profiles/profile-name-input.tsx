@@ -22,6 +22,8 @@ interface ProfileNameInputProps {
    * Marks the input invalid and becomes its accessible description.
    */
   error?: string;
+  /** Custom label override (defaults to "Profile Name"). */
+  label?: string;
 }
 
 export const ProfileNameInput = forwardRef<
@@ -39,14 +41,20 @@ export const ProfileNameInput = forwardRef<
     isOptional,
     isRequired = false,
     error,
+    label: customLabel,
   },
   ref,
 ) {
   const { t } = useTranslation("openhands");
   const isValid = isProfileNameValid(value, { isRequired });
-  const label = isOptional
+  const defaultLabel = isOptional
     ? `${t(I18nKey.SETTINGS$PROFILE_NAME_LABEL)} (${t(I18nKey.COMMON$OPTIONAL)})`
     : t(I18nKey.SETTINGS$PROFILE_NAME_LABEL);
+  const inputLabel = customLabel
+    ? isOptional
+      ? `${customLabel} (${t(I18nKey.COMMON$OPTIONAL)})`
+      : customLabel
+    : defaultLabel;
 
   // Generate a stable ID for the rule element to link with aria-describedby
   const ruleId = React.useId();
@@ -57,7 +65,7 @@ export const ProfileNameInput = forwardRef<
       <SettingsInput
         ref={ref}
         testId={testId}
-        label={label}
+        label={inputLabel}
         type="text"
         className="w-full"
         value={value}

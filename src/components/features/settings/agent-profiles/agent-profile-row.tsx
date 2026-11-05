@@ -63,6 +63,15 @@ export function AgentProfileRow({
         >
           {profile.name}
         </span>
+        {profile.project ? (
+          <span
+            data-testid="agent-profile-project-badge"
+            className="shrink-0 rounded border border-border-subtle bg-base-secondary px-2 py-0.5 text-xs text-muted font-normal"
+            title={profile.project}
+          >
+            {profile.project}
+          </span>
+        ) : null}
         {secondary ? (
           <span
             className="min-w-0 max-w-full truncate text-sm text-muted"

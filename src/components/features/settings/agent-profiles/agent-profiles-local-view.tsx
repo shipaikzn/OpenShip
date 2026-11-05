@@ -7,6 +7,7 @@ import { AgentProfilesManager } from "./agent-profiles-manager";
 import { mergeAgentProfileSaveInput } from "./merge-agent-profile-save-input";
 import { newProfileSeed } from "./new-profile-seed";
 import { ProfileNameInput } from "#/components/features/settings/llm-profiles/profile-name-input";
+import { SettingsInput } from "#/components/features/settings/settings-input";
 import { BrandButton } from "#/components/features/settings/brand-button";
 import { SettingsDropdownInput } from "#/components/features/settings/settings-dropdown-input";
 import {
@@ -141,6 +142,7 @@ export function AgentProfilesLocalView() {
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [profileName, setProfileName] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [nameTouched, setNameTouched] = useState(false);
   const [editingProfile, setEditingProfile] = useState<AgentProfile | null>(
     null,
@@ -194,6 +196,7 @@ export function AgentProfilesLocalView() {
       }
     }
     setProfileName("");
+    setProjectName(seed?.project ?? "");
     setNameTouched(false);
     setEditingProfile(null);
     setSeedProfile(seed);
@@ -256,6 +259,7 @@ export function AgentProfilesLocalView() {
           setLlmProfileRef("");
         }
         setProfileName(profile.name);
+        setProjectName(profile.project ?? "");
         setSaveControl(null);
         setViewMode("edit");
       } catch (error) {
@@ -279,6 +283,7 @@ export function AgentProfilesLocalView() {
     setEditingProfile(null);
     setSeedProfile(null);
     setProfileName("");
+    setProjectName("");
     setNameTouched(false);
     setOverride(null);
     setSaveControl(null);
@@ -303,6 +308,18 @@ export function AgentProfilesLocalView() {
         } as AgentProfileSaveInput;
       } else {
         input = fields as AgentProfileSaveInput;
+      }
+      const trimmedProject = projectName.trim();
+      if (trimmedProject) {
+        input = {
+          ...input,
+          project: trimmedProject,
+        } as AgentProfileSaveInput;
+      } else if (viewMode === "edit" && editingProfile?.project) {
+        input = {
+          ...input,
+          project: null,
+        } as AgentProfileSaveInput;
       }
     } catch (error) {
       displayErrorToast(
@@ -368,6 +385,7 @@ export function AgentProfilesLocalView() {
     isNameValid,
     llmProfileRef,
     profileName,
+    projectName,
     viewMode,
     editingProfile,
     seedProfile,
@@ -475,6 +493,7 @@ export function AgentProfilesLocalView() {
       <div className="flex flex-col gap-2">
         <ProfileNameInput
           testId="agent-profile-name-input"
+          label={t(I18nKey.SETTINGS$AGENT_NAME_LABEL)}
           value={profileName}
           onChange={(name) => {
             setNameTouched(true);
@@ -497,6 +516,17 @@ export function AgentProfilesLocalView() {
             {t(I18nKey.SETTINGS$AGENT_PROFILE_DEFAULT_LOCKED)}
           </p>
         ) : null}
+        <SettingsInput
+          testId="agent-profile-project-input"
+          label={t(I18nKey.SETTINGS$AGENT_PROJECT_LABEL)}
+          type="text"
+          className="w-full"
+          value={projectName}
+          onChange={setProjectName}
+          placeholder={t(I18nKey.SETTINGS$AGENT_PROJECT_PLACEHOLDER)}
+          showOptionalTag
+          isDisabled={isSaving}
+        />
       </div>
 
       {/* Reuse the existing Agent settings form to define the agent. */}
