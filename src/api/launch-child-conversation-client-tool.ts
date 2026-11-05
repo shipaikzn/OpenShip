@@ -79,7 +79,12 @@ export const LAUNCH_CHILD_CONVERSATION_CLIENT_TOOL: ClientToolSpec = {
       title: {
         type: "string",
         description:
-          "Optional short title for the child conversation. Omit to let it title itself from the task.",
+          "Optional short title for the child conversation. Omit to let it title itself from the task or role.",
+      },
+      role: {
+        type: "string",
+        description:
+          "Target agent role (e.g. 'Frontend Developer', 'Backend Developer', 'QA Engineer', 'Technical Writer', 'DevOps'). Child conversation titles are named after the agent's role.",
       },
       repository: {
         type: "string",

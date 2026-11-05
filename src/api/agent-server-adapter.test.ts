@@ -635,6 +635,22 @@ describe("buildStartConversationRequest — agentProfileId path", () => {
     ]);
   });
 
+  it("omits launch_child_conversation tool when parentConversationId is set", () => {
+    const payload = buildStartConversationRequest({
+      settings: makeSettings({ agent_kind: "openhands" }),
+      agentProfileId: "profile-xyz",
+      agentProfileKind: "openhands",
+      parentConversationId: "parent-1",
+    });
+
+    expect(payload.client_tools.map((tool) => tool.name)).not.toContain(
+      LAUNCH_CHILD_CONVERSATION_TOOL_NAME,
+    );
+    expect(payload.client_tools.map((tool) => tool.name)).toContain(
+      CANVAS_UI_CLIENT_TOOL_NAME,
+    );
+  });
+
   it("carries a per-launch LLM override", () => {
     const payload = buildStartConversationRequest({
       settings: makeSettings({ agent_kind: "openhands" }),

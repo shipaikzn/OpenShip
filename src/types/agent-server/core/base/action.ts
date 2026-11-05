@@ -349,6 +349,7 @@ export interface LaunchChildConversationAction extends ActionBase<
   target: string;
   task: string;
   title?: string | null;
+  role?: string | null;
   repository?: string | null;
   branch?: string | null;
   isolation?: string | null;
