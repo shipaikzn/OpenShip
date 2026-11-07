@@ -19,15 +19,25 @@ This document details the live workflow automations configured in the OpenHands 
 
 ## Active Automations in OpenHands
 
-### 1. Team Standup & Sprint Coordination
-- **Automation ID**: `5685216c-f65d-428e-88f3-26ba4300c834`
-- **Trigger**: Cron `0 9 * * 1-5` (Mon–Fri at 09:00 UTC)
+### 1. Project Planning
+- **Automation ID**: `3c1cda48-8bd6-4c64-821f-d2c3d7d4ef4b`
+- **Trigger**: Run once a new project is created (main conversation with Product Owner) / Cron `0 9 * * 1`
 - **Status**: `ACTIVE`
-- **Participants**: Product Owner ↔ Backend, Frontend, DevOps, QA, Technical Writer
+- **Owner**: Product Owner (`ProductOwner`)
 - **Workflow**:
-  - Reviews active issues, open PRs, and recent commits across `khanofai/appfactory`.
-  - Gathers status across all agent domains.
-  - Flags cross-functional blockers and reprioritizes tasks for the sprint cycle.
+  - **Plan Stage Goal**: Produce core planning artifacts and obtain formal customer sign-off before proceeding to the Design stage:
+    1. **Project Overview**: High-level summary, target users, and key value propositions.
+    2. **Scope**: Clear in-scope deliverables and out-of-scope boundaries to prevent scope creep.
+    3. **Roadmap**: Phased milestones, target delivery dates, and dependency mapping across the 6 project stages (Plan, Design, Develop, Test, Launch, Support).
+    4. **Budget**: Resource allocation, computational/LLM cost estimates, and operational expenditure guardrails.
+    5. **Guardrails**: Risks, issues, technical constraints, compliance, and governance policies.
+  - **Customer Agreement & Sign-off**:
+    - Product Owner collaborates directly with the customer in the conversation to agree on scope, roadmap, budget, and guardrails.
+    - Check Plan artifacts as **Signed-off** with timestamp and customer name.
+    - Create the **Product Backlog** of items.
+    - Identify required **Team roles** needed for implementation.
+    - Create sub-agents for relevant profiles as child conversations (`launch_child_conversation`), greet them in their conversations, and explain they are about to start a new project.
+  - **Deliverable**: A complete team of specialist Agents ready to be engaged in work.
 
 ### 2. Feature Backlog Triage & Architecture Review
 - **Automation ID**: `496abc3d-591d-4981-a67e-974335451a84`

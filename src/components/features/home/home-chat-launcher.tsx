@@ -50,6 +50,7 @@ import { writeHomeRecommendedAutomationsDismissed } from "./home-recommended-aut
 import { PinnedAutomationsDashboard } from "./featured-automations/pinned-automations-dashboard";
 import { RunningAutomationsList } from "./featured-automations/running-automations-list";
 import { HomeHeaderTitle } from "./home-header/home-header-title";
+import { ProjectProgressBar } from "./project-progress/project-progress-bar";
 import {
   HomeLauncherModeToggle,
   type HomeLauncherMode,
@@ -495,6 +496,10 @@ export function HomeChatLauncher() {
             mode={displayedLauncherMode}
             onChange={handleLauncherModeChange}
           />
+        </div>
+
+        <div className={cn("w-full", activeLaunch && "hidden")}>
+          <ProjectProgressBar />
         </div>
 
         <div className="w-full">
